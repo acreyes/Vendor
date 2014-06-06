@@ -11,6 +11,7 @@ import os
 import time
 import datetime
 import pickle
+import matplotlib.pyplot as plt
 
 ######CLASSES########
 class SALE():
@@ -18,6 +19,7 @@ class SALE():
         self.dos = date
         self.obj = item
         self.prc = price
+
 #####FUNCTIONS#######
 
 def choice_return(low, high):
@@ -27,12 +29,12 @@ def choice_return(low, high):
         try:
             val = int(choice)
             if val < low or val > high: #not in valid range
-                print "That is not a valid number. Please enter and integer between " + str(low) + "and " +  str(high)
+                print "That is not a valid number. Please enter and integer between " + str(low) + " and " +  str(high)
                 choice = raw_input("Enter a Number:")
             else:
                 break
         except ValueError: #Not an integer
-            print "That is not a valid number. Please enter and integer between " + str(low) + "and " + str(high)
+            print "That is not a valid number. Please enter and integer between " + str(low) + " and " + str(high)
             choice = raw_input("Enter a Number:")
     return(val)
 
@@ -58,20 +60,27 @@ def make_sale():
     for option in object_options:
         print str(count) + ") " + option 
         count += 1
-    val = choice_return(1,len(object_options))
-    if val == len(object_options): #choice is Other
-        object = "Other-" + raw_input("Other-")
+    print "0) Cancel"
+    val = choice_return(0,len(object_options))
+    if val == 0: #time to cancel
+        return("CANCEL")
     else:
-        object = object_options[val - 1]
-    while(True):
-        try:
-            price = float(raw_input("Price of item: "))
-            break
-        except ValueError:
-            print "Error: Please enter a valid number"
-            price = float(raw_input("Price of item: "))
-    item = SALE(now, object, price)
-    return(item)
+        if val == len(object_options): #choice is Other
+            object = "Other-" + raw_input("Other-")
+        else:
+            object = object_options[val - 1]
+            while(True):
+                try:
+                    if val == 0:
+                        break
+                    else:
+                        price = float(raw_input("Price of item: "))
+                        break
+                except ValueError:
+                    print "Error: Please enter a valid number"
+                    price = float(raw_input("Price of item: "))
+            item = SALE(now, object, price)
+            return(item)
 
 def load_file(file_name):
     path = "Records/" + file_name
@@ -162,6 +171,34 @@ def new_book():
             file_name = "MAIN"
     return(file_name)
 
+def make_plots(Sales):
+    object_options = ["Shirt", "Poster", "Book", "Sticker", "Other"]
+    #empty dicionaries hashed by the item types with the bin as the value
+    NOS = {} # number of sales
+    VOS = {} # value of sales
+    for option in object_options:
+        NOS[option] = 0
+        VOS[option] = 0
+    for sale in Sales:
+        option = sale.obj.split('-')[0]
+        NOS[option] += 1
+        VOS[option] += sale.prc
+    TNOS = sum(NOS.values())
+    TVOS = sum(VOS.values())
+
+    plt.subplot(211) #here plot VOS pie
+    TITLE = str(TNOS) + " sales at $%.02f" % TVOS
+    plt.title(TITLE)
+    plt.pie(VOS.values(), labels=object_options, autopct=lambda(p): '{:.0f}'.format(p*TVOS/100))
+    plt.axis('equal')
+    
+    plt.subplot(212) #here plot NOS 
+    plt.pie(NOS.values(), labels=object_options, autopct=lambda(p): '{:.0f}'.format(p*TNOS/100))
+    plt.axis('equal')
+
+    plt.show()
+    
+
 ###########WORKSPACE#########            
 def work_space(file_name, new_old):
     #this is the main work space environment
@@ -175,17 +212,18 @@ def work_space(file_name, new_old):
          
     while(True):
         print "What do you want to do?"
-        Options = ["New Sale", "List Today's Sales", "Change an item", "Exit"]
+        Options = ["New Sale", "List Today's Sales", "Change an item", "Analytics", "Exit"]
         for i in range(len(Options)):
             print str(i+1) + ") " + Options[i]
         val = choice_return(1, len(Options))
 
         if val == 1:
             new_item = make_sale()
-            Sales.append(new_item)
-            fid = open(file_path, "w")
-            pickle.dump(Sales, fid) #write new items to file
-            fid.close()
+            if type(new_item) != type("some string"): #do not cancel
+                Sales.append(new_item)
+                fid = open(file_path, "w")
+                pickle.dump(Sales, fid) #write new items to file
+                fid.close()
             print "\n"*100
         elif val == 2: #list today's sales
             print "\n"*100
@@ -209,7 +247,9 @@ def work_space(file_name, new_old):
                     Sales[item_num - 1] = item
                     break
                 #else:
-        elif val == 4: #exit
+        elif val == 4: #generate plots
+            make_plots(Sales)
+        elif val == len(Options): #exit
             break
     fid = open(file_path, "w")
     pickle.dump(Sales,fid) #write any changes
